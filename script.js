@@ -10,6 +10,16 @@ function saveProjects(projects) {
   localStorage.setItem("projects", JSON.stringify(projects));
 }
 
+// Helper: Convert 24-hour time to 12-hour format
+function formatTimeTo12Hour(time24) {
+  if (!time24) return "";
+  const [hours, minutes] = time24.split(":");
+  let h = parseInt(hours);
+  const ampm = h >= 12 ? "PM" : "AM";
+  h = h % 12 || 12;
+  return `${h}:${minutes} ${ampm}`;
+}
+
 // DATA SECTION
 document.getElementById("dataBtn").onclick = () => {
   content.innerHTML = `
@@ -66,11 +76,16 @@ document.getElementById("inspectionBtn").onclick = () => {
 
       if (!date || !time || !obs) return alert("Please fill out all fields");
 
+      const formattedTime = formatTimeTo12Hour(time);
+
       const reader = new FileReader();
       reader.onload = function() {
         const projects = loadProjects();
         projects[id].inspections.push({
-          date, time, obs, photo: reader.result
+          date,
+          time: formattedTime,
+          obs,
+          photo: reader.result
         });
         saveProjects(projects);
         alert("Inspection saved!");
