@@ -28,9 +28,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     const date = prompt("Enter date (YYYY-MM-DD):", new Date().toISOString().split('T')[0]);
-    const time24 = new Date();
-    let hours = time24.getHours();
-    const minutes = String(time24.getMinutes()).padStart(2, '0');
+    const timeNow = new Date();
+    let hours = timeNow.getHours();
+    const minutes = String(timeNow.getMinutes()).padStart(2, '0');
     const ampm = hours >= 12 ? 'PM' : 'AM';
     hours = hours % 12 || 12;
     const time = `${hours}:${minutes} ${ampm}`;
@@ -56,7 +56,17 @@ document.addEventListener('DOMContentLoaded', () => {
       files.forEach(file => {
         const reader = new FileReader();
         reader.onload = e => {
-          photos.push(e.target.result);
+          const photoTimestamp = new Date();
+          let h = photoTimestamp.getHours();
+          const m = String(photoTimestamp.getMinutes()).padStart(2, '0');
+          const ampm2 = h >= 12 ? 'PM' : 'AM';
+          h = h % 12 || 12;
+          const formattedTime = `${photoTimestamp.getFullYear()}-${String(photoTimestamp.getMonth()+1).padStart(2,'0')}-${String(photoTimestamp.getDate()).padStart(2,'0')} ${h}:${m} ${ampm2}`;
+
+          photos.push({
+            data: e.target.result,
+            timestamp: formattedTime
+          });
           filesLoaded++;
           if (filesLoaded === files.length) saveInspection();
         };
@@ -97,7 +107,8 @@ document.addEventListener('DOMContentLoaded', () => {
         <title>Inspection Report - ${id}</title>
         <style>
           body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; padding: 20px; background: #fafafa; }
-          img { width: 200px; border-radius: 12px; margin: 5px; }
+          img { width: 200px; border-radius: 12px; margin: 5px; display: block; }
+          .caption { font-size: 13px; color: #555; margin-top: 4px; margin-bottom: 15px; text-align: center; }
           h2 { margin-top: 0; }
           hr { margin: 20px 0; }
         </style>
@@ -109,7 +120,12 @@ document.addEventListener('DOMContentLoaded', () => {
         <hr>
         <h3>Inspection on ${inspection.date} at ${inspection.time}</h3>
         <p>${inspection.observations}</p>
-        ${inspection.photos.map(photo => `<img src="${photo}" alt="Photo">`).join('')}
+        ${inspection.photos.map(photo => `
+          <div>
+            <img src="${photo.data}" alt="Photo">
+            <div class="caption">[${photo.timestamp}] (${id})</div>
+          </div>
+        `).join('')}
       </body>
       </html>
     `);
