@@ -23,7 +23,7 @@ function formatTimeTo12Hour(time24) {
 // DATA SECTION
 document.getElementById("dataBtn").onclick = () => {
   content.innerHTML = `
-    <h2>Add Project</h2>
+    <h2>Add or Edit Project</h2>
     <input id="projId" placeholder="Project ID">
     <input id="address" placeholder="Address">
     <input id="scope" placeholder="Scope">
@@ -38,7 +38,11 @@ document.getElementById("dataBtn").onclick = () => {
     if (!id) return alert("Please enter a project ID");
 
     let projects = loadProjects();
-    projects[id] = projects[id] || { address, scope, inspections: [] };
+
+    // Check for duplicate IDs
+    if (projects[id] && !confirm("Project ID already exists. Overwrite?")) return;
+
+    projects[id] = projects[id] || {};
     projects[id].address = address;
     projects[id].scope = scope;
     saveProjects(projects);
@@ -57,13 +61,21 @@ document.getElementById("inspectionBtn").onclick = () => {
   document.getElementById("loadInspection").onclick = () => {
     const id = document.getElementById("projId").value.trim();
     const projects = loadProjects();
-    if (!projects[id]) return alert("Project not found!");
+    const project = projects[id];
+
+    if (!project) return alert("Project not found!");
+
+    // Pre-fill existing inspection if it exists
+    const prev = project.inspection || {};
+    const prevDate = prev.date || "";
+    const prevTime = prev.time ? prev.time.replace(/(AM|PM)/i, "").trim() : "";
+    const prevObs = prev.obs || "";
 
     content.innerHTML = `
       <h2>Inspection for ${id}</h2>
-      <input type="date" id="date">
-      <input type="time" id="time">
-      <textarea id="obs" placeholder="Observations"></textarea>
+      <input type="date" id="date" value="${prevDate}">
+      <input type="time" id="time" value="${prevTime}">
+      <textarea id="obs" placeholder="Observations">${prevObs}</textarea>
       <input type="file" id="photo" accept="image/*">
       <button id="saveInspection">Save Inspection</button>
     `;
@@ -81,17 +93,27 @@ document.getElementById("inspectionBtn").onclick = () => {
       const reader = new FileReader();
       reader.onload = function() {
         const projects = loadProjects();
-        projects[id].inspections.push({
+        projects[id].inspection = {
           date,
           time: formattedTime,
           obs,
           photo: reader.result
-        });
+        };
         saveProjects(projects);
-        alert("Inspection saved!");
+        alert("Inspection saved (1 per project).");
       };
       if (photo) reader.readAsDataURL(photo);
-      else reader.onload(); // Save without image
+      else {
+        const projects = loadProjects();
+        projects[id].inspection = {
+          date,
+          time: formattedTime,
+          obs,
+          photo: prev.photo || null
+        };
+        saveProjects(projects);
+        alert("Inspection saved (1 per project).");
+      }
     };
   };
 };
@@ -113,16 +135,20 @@ document.getElementById("reportBtn").onclick = () => {
     let html = `<h2>Report for ${id}</h2>`;
     html += `<p><b>Address:</b> ${project.address}<br><b>Scope:</b> ${project.scope}</p>`;
 
-    project.inspections.forEach((i, index) => {
+    if (project.inspection) {
+      const i = project.inspection;
       html += `
         <div style="margin:15px;padding:10px;border:1px solid #ccc;border-radius:10px;">
-          <b>Inspection ${index + 1}</b><br>
+          <b>Inspection</b><br>
           Date: ${i.date} | Time: ${i.time}<br>
           <p>${i.obs}</p>
           ${i.photo ? `<img src="${i.photo}" style="width:100%;border-radius:10px;">` : ""}
         </div>
       `;
-    });
+    } else {
+      html += `<p>No inspection data available for this project.</p>`;
+    }
+
     content.innerHTML = html;
   };
 };
