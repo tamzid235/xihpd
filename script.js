@@ -1,119 +1,155 @@
-document.addEventListener('DOMContentLoaded', () => {
-  const projects = JSON.parse(localStorage.getItem('projects') || '{}');
+const content = document.getElementById("content");
 
-  const saveProjects = () => localStorage.setItem('projects', JSON.stringify(projects));
+// Helper: Load all projects
+function loadProjects() {
+  return JSON.parse(localStorage.getItem("projects")) || {};
+}
 
-  // ---------- DATA ----------
-  document.getElementById('dataBtn').addEventListener('click', () => {
-    const id = prompt("Enter Project ID:");
-    if (!id) return;
-    if (projects[id]) return alert("Project ID already exists!");
+// Helper: Save all projects
+function saveProjects(projects) {
+  localStorage.setItem("projects", JSON.stringify(projects));
+}
 
-    const address = prompt("Enter Project Address:");
-    const scope = prompt("Enter Project Scope:");
+// Helper: Convert 24-hour time to 12-hour format
+function formatTimeTo12Hour(time24) {
+  if (!time24) return "";
+  const [hours, minutes] = time24.split(":");
+  let h = parseInt(hours);
+  const ampm = h >= 12 ? "PM" : "AM";
+  h = h % 12 || 12;
+  return `${h}:${minutes} ${ampm}`;
+}
 
-    projects[id] = { address, scope, inspections: [] };
-    saveProjects();
-    alert("Project saved successfully!");
-  });
+// DATA SECTION
+document.getElementById("dataBtn").onclick = () => {
+  content.innerHTML = `
+    <h2>Add or Edit Project</h2>
+    <input id="projId" placeholder="Project ID">
+    <input id="address" placeholder="Address">
+    <input id="scope" placeholder="Scope">
+    <button id="saveData">Save Project</button>
+  `;
 
-  // ---------- INSPECTION ----------
-  document.getElementById('inspectionBtn').addEventListener('click', () => {
-    const id = prompt("Enter Project ID:");
-    if (!id || !projects[id]) return alert("Project not found.");
+  document.getElementById("saveData").onclick = () => {
+    const id = document.getElementById("projId").value.trim();
+    const address = document.getElementById("address").value.trim();
+    const scope = document.getElementById("scope").value.trim();
 
-    const date = prompt("Enter date (YYYY-MM-DD):", new Date().toISOString().split('T')[0]);
-    const now = new Date();
-    let hours = now.getHours();
-    const minutes = String(now.getMinutes()).padStart(2,'0');
-    const ampm = hours >= 12 ? 'PM' : 'AM';
-    hours = hours % 12 || 12;
-    const time = `${hours}:${minutes} ${ampm}`;
+    if (!id) return alert("Please enter a project ID");
 
-    const observations = prompt("Enter observations:");
-    if (!observations) return;
+    let projects = loadProjects();
 
-    const photos = [];
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'image/*';
-    input.multiple = true;
+    // Check for duplicate IDs
+    if (projects[id] && !confirm("Project ID already exists. Overwrite?")) return;
 
-    input.onchange = () => {
-      const files = Array.from(input.files);
-      let filesLoaded = 0;
+    projects[id] = projects[id] || {};
+    projects[id].address = address;
+    projects[id].scope = scope;
+    saveProjects(projects);
+    alert("Project saved!");
+  };
+};
 
-      if (files.length === 0) {
-        saveInspection();
-        return;
-      }
+// INSPECTION SECTION
+document.getElementById("inspectionBtn").onclick = () => {
+  content.innerHTML = `
+    <h2>Inspection</h2>
+    <input id="projId" placeholder="Project ID">
+    <button id="loadInspection">Load Project</button>
+  `;
 
-      files.forEach(file => {
-        const reader = new FileReader();
-        reader.onload = e => {
-          const photoTimestamp = new Date();
-          let h = photoTimestamp.getHours();
-          const m = String(photoTimestamp.getMinutes()).padStart(2,'0');
-          const ampm2 = h >= 12 ? 'PM' : 'AM';
-          h = h % 12 || 12;
-          const formattedTime = `${photoTimestamp.getFullYear()}-${String(photoTimestamp.getMonth()+1).padStart(2,'0')}-${String(photoTimestamp.getDate()).padStart(2,'0')} ${h}:${m} ${ampm2}`;
-
-          photos.push({ data: e.target.result, timestamp: formattedTime });
-          filesLoaded++;
-          if (filesLoaded === files.length) saveInspection();
-        };
-        reader.readAsDataURL(file);
-      });
-    };
-
-    input.click();
-
-    function saveInspection() {
-      projects[id].inspections.push({ date, time, observations, photos });
-      saveProjects();
-      alert("Inspection saved successfully!");
-    }
-  });
-
-  // ---------- REPORT ----------
-  document.getElementById('reportBtn').addEventListener('click', () => {
-    const id = prompt("Enter Project ID:");
-    if (!id || !projects[id]) return alert("Project not found.");
-
+  document.getElementById("loadInspection").onclick = () => {
+    const id = document.getElementById("projId").value.trim();
+    const projects = loadProjects();
     const project = projects[id];
-    const date = prompt("Enter date to view inspection (YYYY-MM-DD):");
-    const inspection = project.inspections.find(i => i.date === date);
 
-    if (!inspection) return alert("No inspection found for that date.");
+    if (!project) return alert("Project not found!");
 
-    const reportWindow = window.open("", "_blank");
-    reportWindow.document.write(`
-      <html>
-      <head>
-        <title>Inspection Report - ${id}</title>
-        <style>
-          body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; padding: 20px; background: #fafafa; }
-          img { width: 200px; border-radius: 12px; margin: 5px; display: block; }
-          .caption { font-size: 13px; color: #555; margin-top: 4px; margin-bottom: 15px; text-align: center; }
-          h2 { margin-top: 0; }
-          hr { margin: 20px 0; }
-        </style>
-      </head>
-      <body>
-        <h2>Project ID: ${id}</h2>
-        <p><strong>Address:</strong> ${project.address}</p>
-        <p><strong>Scope:</strong> ${project.scope}</p>
-        <hr>
-        <h3>Inspection on ${inspection.date} at ${inspection.time}</h3>
-        <p>${inspection.observations}</p>
-        ${inspection.photos.map(photo => `
-          <div>
-            <img src="${photo.data}" alt="Photo">
-            <div class="caption">[${photo.timestamp}] (${id})</div>
-          </div>
-        `).join('')}
-      </body>
-      </html>
-    `);
-  });
-});
+    // Pre-fill existing inspection if it exists
+    const prev = project.inspection || {};
+    const prevDate = prev.date || "";
+    const prevTime = prev.time ? prev.time.replace(/(AM|PM)/i, "").trim() : "";
+    const prevObs = prev.obs || "";
+
+    content.innerHTML = `
+      <h2>Inspection for ${id}</h2>
+      <input type="date" id="date" value="${prevDate}">
+      <input type="time" id="time" value="${prevTime}">
+      <textarea id="obs" placeholder="Observations">${prevObs}</textarea>
+      <input type="file" id="photo" accept="image/*">
+      <button id="saveInspection">Save Inspection</button>
+    `;
+
+    document.getElementById("saveInspection").onclick = () => {
+      const date = document.getElementById("date").value;
+      const time = document.getElementById("time").value;
+      const obs = document.getElementById("obs").value;
+      const photo = document.getElementById("photo").files[0];
+
+      if (!date || !time || !obs) return alert("Please fill out all fields");
+
+      const formattedTime = formatTimeTo12Hour(time);
+
+      const reader = new FileReader();
+      reader.onload = function() {
+        const projects = loadProjects();
+        projects[id].inspection = {
+          date,
+          time: formattedTime,
+          obs,
+          photo: reader.result
+        };
+        saveProjects(projects);
+        alert("Inspection saved (1 per project).");
+      };
+      if (photo) reader.readAsDataURL(photo);
+      else {
+        const projects = loadProjects();
+        projects[id].inspection = {
+          date,
+          time: formattedTime,
+          obs,
+          photo: prev.photo || null
+        };
+        saveProjects(projects);
+        alert("Inspection saved (1 per project).");
+      }
+    };
+  };
+};
+
+// REPORT SECTION
+document.getElementById("reportBtn").onclick = () => {
+  content.innerHTML = `
+    <h2>View Report</h2>
+    <input id="projId" placeholder="Project ID">
+    <button id="loadReport">Load Report</button>
+  `;
+
+  document.getElementById("loadReport").onclick = () => {
+    const id = document.getElementById("projId").value.trim();
+    const projects = loadProjects();
+    const project = projects[id];
+    if (!project) return alert("Project not found!");
+
+    let html = `<h2>Report for ${id}</h2>`;
+    html += `<p><b>Address:</b> ${project.address}<br><b>Scope:</b> ${project.scope}</p>`;
+
+    if (project.inspection) {
+      const i = project.inspection;
+      html += `
+        <div style="margin:15px;padding:10px;border:1px solid #ccc;border-radius:10px;">
+          <b>Inspection</b><br>
+          Date: ${i.date} | Time: ${i.time}<br>
+          <p>${i.obs}</p>
+          ${i.photo ? `<img src="${i.photo}" style="width:100%;border-radius:10px;">` : ""}
+        </div>
+      `;
+    } else {
+      html += `<p>No inspection data available for this project.</p>`;
+    }
+
+    content.innerHTML = html;
+  };
+};
+
