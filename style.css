@@ -45,3 +45,11 @@ h1 {
 .main-btn:active {
   background-color: #003f7f;
 }
+
+.caption {
+  font-size: 13px;
+  color: #555;
+  margin-top: 4px;
+  margin-bottom: 15px;
+  text-align: center;
+}
