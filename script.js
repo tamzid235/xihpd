@@ -1,155 +1,181 @@
-const content = document.getElementById("content");
+const DB_NAME = "field-notes-db";
+const DB_VERSION = 1;
+const STORE = "projects";
 
-// Helper: Load all projects
-function loadProjects() {
-  return JSON.parse(localStorage.getItem("projects")) || {};
-}
-
-// Helper: Save all projects
-function saveProjects(projects) {
-  localStorage.setItem("projects", JSON.stringify(projects));
-}
-
-// Helper: Convert 24-hour time to 12-hour format
-function formatTimeTo12Hour(time24) {
-  if (!time24) return "";
-  const [hours, minutes] = time24.split(":");
-  let h = parseInt(hours);
-  const ampm = h >= 12 ? "PM" : "AM";
-  h = h % 12 || 12;
-  return `${h}:${minutes} ${ampm}`;
-}
-
-// DATA SECTION
-document.getElementById("dataBtn").onclick = () => {
-  content.innerHTML = `
-    <h2>Add or Edit Project</h2>
-    <input id="projId" placeholder="Project ID">
-    <input id="address" placeholder="Address">
-    <input id="scope" placeholder="Scope">
-    <button id="saveData">Save Project</button>
-  `;
-
-  document.getElementById("saveData").onclick = () => {
-    const id = document.getElementById("projId").value.trim();
-    const address = document.getElementById("address").value.trim();
-    const scope = document.getElementById("scope").value.trim();
-
-    if (!id) return alert("Please enter a project ID");
-
-    let projects = loadProjects();
-
-    // Check for duplicate IDs
-    if (projects[id] && !confirm("Project ID already exists. Overwrite?")) return;
-
-    projects[id] = projects[id] || {};
-    projects[id].address = address;
-    projects[id].scope = scope;
-    saveProjects(projects);
-    alert("Project saved!");
-  };
-};
-
-// INSPECTION SECTION
-document.getElementById("inspectionBtn").onclick = () => {
-  content.innerHTML = `
-    <h2>Inspection</h2>
-    <input id="projId" placeholder="Project ID">
-    <button id="loadInspection">Load Project</button>
-  `;
-
-  document.getElementById("loadInspection").onclick = () => {
-    const id = document.getElementById("projId").value.trim();
-    const projects = loadProjects();
-    const project = projects[id];
-
-    if (!project) return alert("Project not found!");
-
-    // Pre-fill existing inspection if it exists
-    const prev = project.inspection || {};
-    const prevDate = prev.date || "";
-    const prevTime = prev.time ? prev.time.replace(/(AM|PM)/i, "").trim() : "";
-    const prevObs = prev.obs || "";
-
-    content.innerHTML = `
-      <h2>Inspection for ${id}</h2>
-      <input type="date" id="date" value="${prevDate}">
-      <input type="time" id="time" value="${prevTime}">
-      <textarea id="obs" placeholder="Observations">${prevObs}</textarea>
-      <input type="file" id="photo" accept="image/*">
-      <button id="saveInspection">Save Inspection</button>
-    `;
-
-    document.getElementById("saveInspection").onclick = () => {
-      const date = document.getElementById("date").value;
-      const time = document.getElementById("time").value;
-      const obs = document.getElementById("obs").value;
-      const photo = document.getElementById("photo").files[0];
-
-      if (!date || !time || !obs) return alert("Please fill out all fields");
-
-      const formattedTime = formatTimeTo12Hour(time);
-
-      const reader = new FileReader();
-      reader.onload = function() {
-        const projects = loadProjects();
-        projects[id].inspection = {
-          date,
-          time: formattedTime,
-          obs,
-          photo: reader.result
-        };
-        saveProjects(projects);
-        alert("Inspection saved (1 per project).");
-      };
-      if (photo) reader.readAsDataURL(photo);
-      else {
-        const projects = loadProjects();
-        projects[id].inspection = {
-          date,
-          time: formattedTime,
-          obs,
-          photo: prev.photo || null
-        };
-        saveProjects(projects);
-        alert("Inspection saved (1 per project).");
-      }
+function openDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, DB_VERSION);
+    req.onupgradeneeded = () => {
+      const db = req.result;
+      if (!db.objectStoreNames.contains(STORE)) db.createObjectStore(STORE, { keyPath: "id" });
     };
-  };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function idbGet(id) {
+  const db = await openDB();
+  return new Promise((res, rej) => {
+    const tx = db.transaction(STORE, "readonly");
+    const store = tx.objectStore(STORE);
+    const req = store.get(id);
+    req.onsuccess = () => res(req.result || null);
+    req.onerror = () => rej(req.error);
+  });
+}
+
+async function idbPut(obj) {
+  const db = await openDB();
+  return new Promise((res, rej) => {
+    const tx = db.transaction(STORE, "readwrite");
+    const store = tx.objectStore(STORE);
+    const req = store.put(obj);
+    req.onsuccess = () => res(true);
+    req.onerror = () => rej(req.error);
+  });
+}
+
+async function idbGetAll() {
+  const db = await openDB();
+  return new Promise((res, rej) => {
+    const tx = db.transaction(STORE, "readonly");
+    const store = tx.objectStore(STORE);
+    const req = store.getAll();
+    req.onsuccess = () => res(req.result || []);
+    req.onerror = () => rej(req.error);
+  });
+}
+
+// Utility
+const $ = (id) => document.getElementById(id);
+const show = (view) => {
+  ["view-home","view-data","view-inspection","view-report"]
+    .forEach(v => $(v).classList.add("hidden"));
+  $(view).classList.remove("hidden");
+  $("homeBtn").classList.toggle("hidden", view==="view-home");
 };
 
-// REPORT SECTION
-document.getElementById("reportBtn").onclick = () => {
-  content.innerHTML = `
-    <h2>View Report</h2>
-    <input id="projId" placeholder="Project ID">
-    <button id="loadReport">Load Report</button>
-  `;
+// Navigation
+$("goData").onclick = () => show("view-data");
+$("goInspection").onclick = () => show("view-inspection");
+$("goReport").onclick = () => show("view-report");
+$("homeBtn").onclick = () => { show("view-home"); refreshProjects(); };
 
-  document.getElementById("loadReport").onclick = () => {
-    const id = document.getElementById("projId").value.trim();
-    const projects = loadProjects();
-    const project = projects[id];
-    if (!project) return alert("Project not found!");
+// Home project list
+async function refreshProjects() {
+  const ul = $("projectList");
+  ul.innerHTML = "";
+  const all = await idbGetAll();
+  all.sort((a,b)=>a.id.localeCompare(b.id));
+  if (!all.length) return ul.innerHTML = "<li><em>No projects yet.</em></li>";
+  all.forEach(p=>{
+    const li = document.createElement("li");
+    li.innerHTML = `<div><strong>${p.id}</strong><br><span class='muted'>${p.address||""}</span></div>`;
+    const btn=document.createElement("button");
+    btn.className="btn ghost"; btn.textContent="Open";
+    btn.onclick=()=>openInspection(p);
+    li.appendChild(btn);
+    ul.appendChild(li);
+  });
+}
 
-    let html = `<h2>Report for ${id}</h2>`;
-    html += `<p><b>Address:</b> ${project.address}<br><b>Scope:</b> ${project.scope}</p>`;
+// Data save/open
+$("saveProject").onclick = async ()=>{
+  const id=$("data-id").value.trim();
+  if(!id) return $("data-msg").textContent="ID required.";
+  const address=$("data-address").value.trim();
+  const scope=$("data-scope").value.trim();
+  const existing=await idbGet(id);
+  const project={id,address,scope,inspections:existing?.inspections||[]};
+  await idbPut(project);
+  $("data-msg").textContent="Saved!";
+  refreshProjects();
+};
+$("openProjectFromData").onclick=async()=>{
+  const id=$("data-id").value.trim();
+  const p=await idbGet(id);
+  if(!p) return $("data-msg").textContent="Not found.";
+  openInspection(p);
+};
 
-    if (project.inspection) {
-      const i = project.inspection;
-      html += `
-        <div style="margin:15px;padding:10px;border:1px solid #ccc;border-radius:10px;">
-          <b>Inspection</b><br>
-          Date: ${i.date} | Time: ${i.time}<br>
-          <p>${i.obs}</p>
-          ${i.photo ? `<img src="${i.photo}" style="width:100%;border-radius:10px;">` : ""}
-        </div>
-      `;
-    } else {
-      html += `<p>No inspection data available for this project.</p>`;
+// Inspection
+$("openInspection").onclick=async()=>{
+  const id=$("inspection-id-input").value.trim();
+  const p=await idbGet(id);
+  if(!p) return $("inspection-status").textContent="No project found.";
+  openInspection(p);
+};
+
+function openInspection(p){
+  show("view-inspection");
+  $("inspection-open").classList.add("hidden");
+  $("inspection-page").classList.remove("hidden");
+  $("insp-title").textContent=p.id;
+  $("insp-address").textContent=p.address||"";
+  $("insp-scope").textContent=p.scope||"";
+  $("insp-date").value=new Date().toISOString().slice(0,10);
+  $("insp-time").value=new Date().toTimeString().slice(0,5);
+  $("inspection-page").dataset.id=p.id;
+  renderInspections(p);
+}
+
+$("insp-photos").onchange=()=> {
+  const n=$("insp-photos").files.length;
+  $("insp-selected").textContent = n?`Selected ${n} photo(s)`:"";
+};
+
+$("saveInspection").onclick=async()=>{
+  const pid=$("inspection-page").dataset.id;
+  const proj=await idbGet(pid);
+  const obs=$("insp-obs").value.trim();
+  const date=$("insp-date").value;
+  const time=$("insp-time").value;
+  const files=[...$("insp-photos").files];
+  const photos=[];
+  for(const f of files) photos.push(await readAsDataURL(f));
+  const entry={id:Math.random().toString(36).slice(2,10),date,time,observations:obs,photos};
+  proj.inspections.push(entry);
+  await idbPut(proj);
+  $("insp-obs").value=""; $("insp-photos").value="";
+  $("insp-selected").textContent="Saved!";
+  renderInspections(proj);
+};
+
+function renderInspections(p){
+  const wrap=$("insp-list"); wrap.innerHTML="";
+  if(!p.inspections?.length){
+    wrap.innerHTML="<div class='card'><p class='muted'>No inspections yet.</p></div>";
+    return;
+  }
+  p.inspections.slice().reverse().forEach(i=>{
+    const card=document.createElement("div");
+    card.className="card";
+    card.innerHTML=`<b>${i.date} • ${i.time}</b><p>${i.observations||""}</p>`;
+    if(i.photos?.length){
+      const div=document.createElement("div");
+      div.className="photos";
+      i.photos.forEach(src=>{
+        const img=document.createElement("img"); img.src=src; div.appendChild(img);
+      });
+      card.appendChild(div);
     }
+    wrap.appendChild(card);
+  });
+}
 
-    content.innerHTML = html;
-  };
+$("openReport").onclick=async()=>{
+  const id=$("report-id").value.trim();
+  const p=await idbGet(id);
+  if(!p) return $("report-status").textContent="No project found.";
+  openInspection(p);
 };
 
+function readAsDataURL(file){
+  return new Promise((res,rej)=>{
+    const r=new FileReader(); r.onload=()=>res(r.result); r.onerror=rej; r.readAsDataURL(file);
+  });
+}
+
+refreshProjects();
+show("view-home");
