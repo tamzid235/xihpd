@@ -1,22 +1,138 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Inspection Tracker</title>
-  <link rel="stylesheet" href="style.css">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Project Tracker">
-<link rel="apple-touch-icon" href="icon.png">
+  <meta charset="utf-8" />
+  <title>Field Notes</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <h1>Inspection Tracker</h1>
-  <button id="dataBtn">Data Entry</button>
-  <button id="inspectionBtn">Inspection</button>
-  <button id="reportBtn">Report</button>
+  <header>
+    <div class="wrap">
+      <h1>Field Notes</h1>
+      <div class="topbar-actions">
+        <button id="homeBtn" class="btn ghost hidden">Home</button>
+      </div>
+    </div>
+  </header>
 
-  <div id="content"></div>
+  <main class="container">
+    <!-- Home -->
+    <section id="view-home" class="grid">
+      <div class="card pad">
+        <h2>Welcome</h2>
+        <p class="muted">Tap a section below. Data is saved locally on your device.</p>
+      </div>
+      <div class="grid home-actions">
+        <button class="btn" id="goData">Data</button>
+        <button class="btn" id="goInspection">Inspection</button>
+        <button class="btn" id="goReport">Report</button>
+      </div>
+      <div class="card pad projects">
+        <h3>Your Projects</h3>
+        <ul id="projectList"></ul>
+      </div>
+    </section>
+
+    <!-- Data -->
+    <section id="view-data" class="grid hidden">
+      <div class="card pad">
+        <h2>Data</h2>
+        <label>
+          <span class="lab">Project ID</span>
+          <input id="data-id" type="text" placeholder="e.g., A102" />
+        </label>
+        <label>
+          <span class="lab">Address</span>
+          <input id="data-address" type="text" placeholder="123 Main St, City, ST" />
+        </label>
+        <label>
+          <span class="lab">Scope</span>
+          <textarea id="data-scope" placeholder="Brief scope of work"></textarea>
+        </label>
+        <div class="row">
+          <button id="saveProject" class="btn">Save</button>
+          <button id="openProjectFromData" class="btn secondary">Open</button>
+        </div>
+        <p id="data-msg" class="muted"></p>
+      </div>
+    </section>
+
+    <!-- Inspection -->
+    <section id="view-inspection" class="grid hidden">
+      <div id="inspection-open" class="card pad">
+        <h2>Inspection</h2>
+        <label>
+          <span class="lab">Enter Project ID</span>
+          <input id="inspection-id-input" type="text" placeholder="Project ID" />
+        </label>
+        <div class="row">
+          <button id="openInspection" class="btn">Open Project</button>
+          <span id="inspection-status" class="muted"></span>
+        </div>
+      </div>
+
+      <div id="inspection-page" class="hidden">
+        <div class="card pad">
+          <div class="head">
+            <div id="insp-title"></div>
+            <div id="insp-address" class="muted"></div>
+            <div id="insp-scope" class="muted"></div>
+          </div>
+        </div>
+
+        <div class="card pad">
+          <h3>New Inspection Entry</h3>
+          <div class="row">
+            <label>
+              <span class="lab">Date</span>
+              <input id="insp-date" type="date" />
+            </label>
+            <label>
+              <span class="lab">Time</span>
+              <input id="insp-time" type="time" />
+            </label>
+          </div>
+          <label>
+            <span class="lab">Observations</span>
+            <textarea id="insp-obs"></textarea>
+          </label>
+          <label>
+            <span class="lab">Photos (multiple)</span>
+            <input id="insp-photos" type="file" accept="image/*" capture="environment" multiple />
+            <div id="insp-selected" class="muted"></div>
+          </label>
+          <div class="row">
+            <button id="saveInspection" class="btn">Save</button>
+            <span id="insp-status" class="muted"></span>
+          </div>
+        </div>
+
+        <div id="insp-list" class="list"></div>
+      </div>
+    </section>
+
+    <!-- Report -->
+    <section id="view-report" class="grid hidden">
+      <div class="card pad">
+        <h2>Report</h2>
+        <label>
+          <span class="lab">Enter Project ID</span>
+          <input id="report-id" type="text" placeholder="Project ID" />
+        </label>
+        <div class="row">
+          <button id="openReport" class="btn">Open Project Page</button>
+          <span id="report-status" class="muted"></span>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="container muted">
+    Stored locally on your device. Clearing browser data may remove records.
+  </footer>
 
   <script src="script.js"></script>
 </body>
